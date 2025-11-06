@@ -1,6 +1,5 @@
 # 🎨 Sushmitha Codes Art
 
-![Website Preview](assets/preview-banner.jpg)  
 > *“Where art and code meet devotion — one pixel at a time.”* ✨  
 
 ![HTML Badge](https://img.shields.io/badge/HTML5-orange?logo=html5)
