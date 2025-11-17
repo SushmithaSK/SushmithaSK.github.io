@@ -1,162 +1,243 @@
-// sketch2.js — Floating sparkles with faster filament motion ✨
+// --------------------------------------------------
+// sketch2.js — Sync + Nebula Fade (optimized but identical visually)
+// --------------------------------------------------
+let sketch2 = (p) => {
+  let startTime = 0;
+  const animationDuration = 40000;
 
-const sparkSketch = (p) => {
-  let sparkles = [];
-  const maxSparkles = 15;
-  const palette = ["#eae0d5", "#c6ac8f", "#5e503f"];
+  // Nebula noise
+  let noiseOffset1_X, noiseOffset1_Y;
+  let noiseOffset2_X, noiseOffset2_Y;
+  let noiseScale = 0.002;
+  let noiseSpeed = 0.00005;
 
-  p.setup = function () {
-    const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
-    canvas.parent("p5-cygnus");
-    p.angleMode(p.RADIANS);
-    p.noFill();
+  // Stars
+  let stars = [];
+  const numNormalStars = 1000;
+  const numBrightStars = 30;
+  const numRedStars = 10;
+
+  // Scroll fade (nebula only)
+  let nebulaAlpha = 0;
+
+  // Smooth fade for stars
+  let starFade = 0;
+  const starFadeDuration = 1000;
+  let starFadeStart = 0;
+
+  p.__started = false;
+  p.canvasEl = null;
+
+  // ------------------------------
+  // SETUP
+  // ------------------------------
+  p.setup = () => {
+    p.canvasEl = p.createCanvas(p.windowWidth, p.windowHeight);
+  const c = p.canvasEl;
+
+  // Apply CSS class instead of inline styles
+  c.addClass("sketch2-canvas");
+
+  p.pixelDensity(1);
+  p.noiseDetail(3, 0.5);
+
+  initializeStars();
+  setupScrollFade();
+
   };
 
-  p.draw = function () {
-    p.clear();
+  // ------------------------------
+  // Triggered by sketch.js
+  // ------------------------------
+  p.startNebula = () => {
+    p.__started = true;
+    resetAnimation();
 
-    // Sparkle generation
-    if (sparkles.length < maxSparkles && p.random() < 0.02) {
-      sparkles.push(new Sparkle(p.random(p.width), p.random(p.height)));
-    }
-
-    for (let i = sparkles.length - 1; i >= 0; i--) {
-      const s = sparkles[i];
-      s.update();
-      s.display();
-      if (s.finished()) sparkles.splice(i, 1);
-    }
+    starFadeStart = p.millis();
+    starFade = 0;
   };
 
-  class Sparkle {
-    constructor(x, y) {
-      this.x = x;
-      this.y = y;
-      this.t = p.random(1000);
-      this.life = 0;
-      this.maxLife = p.random(200, 280);
-      this.scale = p.random(0.3, 0.6);
-      this.fade = 0;
-      this.color = p.color(p.random(palette));
+  window.addEventListener("spiralFinished", () => {
+    if (!p.__started) p.startNebula();
+  });
 
-      // Movement constants
-      this.vx = p.random(-0.2, 0.2);
-      this.vy = p.random(-0.3, -0.05);
-      this.wobbleAmp = p.random(0.5, 2.5);
-      this.wobbleSpeed = p.random(0.01, 0.03);
-    }
+  // ------------------------------
+  // SCROLL FADE (NEBULA ONLY)
+  // ------------------------------
+  function setupScrollFade() {
+    window.addEventListener("scroll", () => {
+      let scrollY = window.scrollY;
 
-    update() {
-      this.t += p.PI / 180;
-      this.life++;
+      const fadeInStart = 50;
+      const fadeInEnd = 300;
+      const fadeOutStart = 800;
+      const fadeOutEnd = 1400;
 
-      // Fade
-      if (this.life < 40) this.fade = p.map(this.life, 0, 40, 0, 1);
-      else if (this.life > this.maxLife - 40)
-        this.fade = p.map(this.life, this.maxLife - 40, this.maxLife, 1, 0);
-      else this.fade = 1;
-
-      // Drift
-      this.x += this.vx + p.sin(this.t * 0.5) * 0.1 * this.wobbleAmp;
-      this.y += this.vy + p.cos(this.t * 0.3) * 0.1 * this.wobbleAmp;
-
-      // Mouse interaction
-      const dx = this.x - p.mouseX;
-      const dy = this.y - p.mouseY;
-      const distSq = dx * dx + dy * dy;
-
-      if (distSq < 12000) {
-        const dist = p.sqrt(distSq);
-        const strength = p.map(dist, 0, 120, 2.0, 0.2, true);
-        const angle = p.atan2(dy, dx);
-        this.x += p.cos(angle) * strength;
-        this.y += p.sin(angle) * strength;
-        this.fade = p.constrain(this.fade + 0.05, 0, 1.2);
+      if (scrollY < fadeInStart) {
+        nebulaAlpha = 0;
+      } else if (scrollY < fadeInEnd) {
+        nebulaAlpha = p.map(scrollY, fadeInStart, fadeInEnd, 0, 1);
+      } else if (scrollY < fadeOutStart) {
+        nebulaAlpha = 1;
+      } else {
+        nebulaAlpha = p.map(scrollY, fadeOutStart, fadeOutEnd, 1, 0);
+        nebulaAlpha = p.constrain(nebulaAlpha, 0, 1);
       }
-
-      // Wrap
-      if (this.x < -100) this.x = p.width + 50;
-      if (this.x > p.width + 100) this.x = -50;
-      if (this.y < -100) this.y = p.height + 50;
-    }
-
-    display() {
-      p.push();
-      p.translate(this.x, this.y);
-      p.scale(this.scale);
-      p.noFill();
-
-      // 💨 Faster filament oscillation
-      const speedFactor = 2.2; // increase this for faster illusion
-
-      for (let i = 0; i < 16; i++) {
-        p.push();
-        p.rotate(i * p.PI / 8 + p.sin(this.t * 0.1 * speedFactor) * 0.1);
-        for (let j = 1; j <= 40; j++) {
-          let x1 = p.map(j - 1, 0, 40, 0, 100),
-              x2 = p.map(j, 0, 40, 0, 100);
-
-          let y1 =
-            p.sin((j - 1) * 0.3 + this.t * 0.8 * speedFactor + i * 0.5) *
-              (10 + p.sin(this.t * 0.5 * speedFactor) * 5) *
-              p.map(j - 1, 0, 40, 0.1, 1) +
-            p.cos((j - 1) * 0.6 + this.t * 0.5 * speedFactor + i * 0.3) *
-              (5 + p.cos(this.t * 0.7 * speedFactor) * 3) *
-              p.map(j - 1, 0, 40, 0, 0.8);
-
-          let y2 =
-            p.sin(j * 0.3 + this.t * 0.8 * speedFactor + i * 0.5) *
-              (10 + p.sin(this.t * 0.5 * speedFactor) * 5) *
-              p.map(j, 0, 40, 0.1, 1) +
-            p.cos(j * 0.6 + this.t * 0.5 * speedFactor + i * 0.3) *
-              (5 + p.cos(this.t * 0.7 * speedFactor) * 3) *
-              p.map(j, 0, 40, 0, 0.8);
-
-          let c1 = p.color(50, 50, 50, 80 * this.fade);
-          let c2 = p.color(this.color);
-          c2.setAlpha(220 * this.fade);
-          p.stroke(p.lerpColor(c1, c2, j / 40));
-          p.strokeWeight(1 + p.sin(this.t * 0.2 * speedFactor + j * 0.1) * 0.5);
-          p.line(x1, y1, x2, y2);
-          p.line(x1, -y1, x2, -y2);
-        }
-        p.pop();
-      }
-
-      // Glow
-      let r = (20 + p.sin(this.t * 0.5) * 5) * this.scale;
-      let baseCol = p.color(this.color);
-      baseCol.setAlpha(140 * this.fade);
-      p.noStroke();
-      p.fill(baseCol);
-      p.ellipse(0, 0, r * 3.2);
-      baseCol.setAlpha(240 * this.fade);
-      p.fill(baseCol);
-      p.ellipse(0, 0, r * 1.6);
-
-      // Orbiting sparks
-      for (let k = 0; k < 12; k++) {
-        let a = k * p.PI / 6 + this.t * 0.2 * speedFactor;
-        baseCol.setAlpha((100 + p.sin(this.t * 0.5 * speedFactor + k) * 80) * this.fade);
-        p.fill(baseCol);
-        p.ellipse(
-          p.cos(a) * (r + 10),
-          p.sin(a) * (r + 10),
-          (4 + p.sin(this.t * 0.7 * speedFactor + k) * 1.5) * this.scale
-        );
-      }
-
-      p.pop();
-    }
-
-    finished() {
-      return this.life > this.maxLife;
-    }
+    });
   }
 
-  p.windowResized = function () {
+  // ------------------------------
+  // STAR INITIALIZATION
+  // ------------------------------
+  function initializeStars() {
+    stars.length = 0; // reuse array for GC safety
+
+    const addStars = (count, minS, maxS, colorFn, type) => {
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: p.random(p.width),
+          y: p.random(p.height),
+          size: p.random(minS, maxS),
+          color: colorFn(),
+          twinkleOffset: p.random(1000),
+          type
+        });
+      }
+    };
+
+    addStars(numNormalStars, 1, 2.5,
+      () => p.color(200 + p.random(55), 200 + p.random(55), 255, p.random(150, 220)),
+      "normal"
+    );
+
+    addStars(numBrightStars, 2.5, 6,
+      () => p.color(255, 200 + p.random(55), 100 + p.random(100), p.random(180, 255)),
+      "bright"
+    );
+
+    addStars(numRedStars, 2, 4,
+      () => p.color(255, p.random(50, 100), p.random(50, 100), p.random(180, 255)),
+      "red"
+    );
+  }
+
+  // ------------------------------
+  // RESET ANIMATION
+  // ------------------------------
+  function resetAnimation() {
+    startTime = p.millis();
+
+    noiseOffset1_X = p.random(1000);
+    noiseOffset1_Y = p.random(1000);
+    noiseOffset2_X = p.random(1000);
+    noiseOffset2_Y = p.random(1000);
+
+    for (let s of stars) s.twinkleOffset = p.random(1000);
+  }
+
+  // ------------------------------
+  // DRAW LOOP
+  // ------------------------------
+  p.draw = () => {
+    if (!p.__started) return;
+
+    let t = p.millis() - startTime;
+
+    if (t > animationDuration) {
+      resetAnimation();
+      t = 0;
+    }
+
+    starFade = p.constrain((p.millis() - starFadeStart) / starFadeDuration, 0, 1);
+
+    p.background(10, 5, 15);
+    p.noStroke();
+
+    const z = t * noiseSpeed;
+
+    // ======================================================
+    // NEBULA — optimized loops but identical visuals
+    // ======================================================
+    p.blendMode(p.SCREEN);
+
+    const grid1 = 40;
+    const grid2 = 60;
+
+    let n, r, g, b, a;
+
+    for (let y = 0; y < p.height; y += grid1) {
+      for (let x = 0; x < p.width; x += grid1) {
+
+        n = p.noise(x * noiseScale + noiseOffset1_X,
+                    y * noiseScale + noiseOffset1_Y, z);
+
+        a = p.lerp(0, 60, n) * nebulaAlpha;
+        if (a < 1) continue; // skip invisible pixels (optimization)
+
+        p.fill(
+          p.lerp(80, 180, n),
+          p.lerp(40, 90, n),
+          p.lerp(0, 20, n),
+          a
+        );
+
+        p.ellipse(x, y, grid1 * (1 + n));
+      }
+    }
+
+    for (let y = 0; y < p.height; y += grid2) {
+      for (let x = 0; x < p.width; x += grid2) {
+
+        n = p.noise(x * noiseScale * 0.8 + noiseOffset2_X,
+                    y * noiseScale * 0.8 + noiseOffset2_Y, z * 1.5);
+
+        a = p.lerp(0, 70, n) * nebulaAlpha;
+        if (a < 1) continue;
+
+        p.fill(
+          p.lerp(150, 255, n),
+          p.lerp(80, 190, n),
+          p.lerp(0, 50, n),
+          a
+        );
+
+        p.ellipse(x, y, grid2 * (0.5 + n * 1.5));
+      }
+    }
+
+    // ======================================================
+    // STARS — smooth fade-in
+    // ======================================================
+    p.blendMode(p.BLEND);
+    const tSec = t / 1000;
+
+    for (let s of stars) {
+      const tw = p.sin(s.twinkleOffset + tSec * 2) * 0.2 + 1;
+      const size = s.size * tw;
+
+      const baseA = p.alpha(s.color) * tw * starFade;
+
+      const r = p.red(s.color);
+      const g = p.green(s.color);
+      const b = p.blue(s.color);
+
+      if (s.type === "bright") {
+        for (let i = 0; i < 3; i++) {
+          p.fill(r, g, b, baseA * (0.15 - i * 0.05));
+          p.ellipse(s.x, s.y, size * (1 + i * 0.4));
+        }
+      }
+
+      p.fill(r, g, b, baseA);
+      p.ellipse(s.x, s.y, size);
+    }
+  };
+
+  p.windowResized = () => {
     p.resizeCanvas(p.windowWidth, p.windowHeight);
+    initializeStars();
+    resetAnimation();
   };
 };
 
-new p5(sparkSketch);
+new p5(sketch2);
