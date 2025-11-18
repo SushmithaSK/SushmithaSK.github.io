@@ -1,21 +1,24 @@
 // --------------------------------------------------
-// sketch2.js — Sync + Nebula Fade (optimized but identical visually)
+// sketch2.js — Responsive + Mobile Optimized Version
 // --------------------------------------------------
 let sketch2 = (p) => {
   let startTime = 0;
   const animationDuration = 40000;
 
+  // Detect mobile (small screens or touch)
+  const IS_MOBILE = window.innerWidth < 768 || navigator.maxTouchPoints > 0;
+
   // Nebula noise
   let noiseOffset1_X, noiseOffset1_Y;
   let noiseOffset2_X, noiseOffset2_Y;
-  let noiseScale = 0.002;
+  let noiseScale = IS_MOBILE ? 0.003 : 0.002;
   let noiseSpeed = 0.00005;
 
-  // Stars
+  // Stars (scaled for mobile)
   let stars = [];
-  const numNormalStars = 1000;
-  const numBrightStars = 30;
-  const numRedStars = 10;
+  const numNormalStars = IS_MOBILE ? 450 : 1000;
+  const numBrightStars = IS_MOBILE ? 15 : 30;
+  const numRedStars = IS_MOBILE ? 6 : 10;
 
   // Scroll fade (nebula only)
   let nebulaAlpha = 0;
@@ -25,6 +28,9 @@ let sketch2 = (p) => {
   const starFadeDuration = 1000;
   let starFadeStart = 0;
 
+  // Handle mobile scroll jump
+  let lastScrollY = 0;
+
   p.__started = false;
   p.canvasEl = null;
 
@@ -32,18 +38,16 @@ let sketch2 = (p) => {
   // SETUP
   // ------------------------------
   p.setup = () => {
-    p.canvasEl = p.createCanvas(p.windowWidth, p.windowHeight);
-  const c = p.canvasEl;
+    p.canvasEl = p.createCanvas(window.innerWidth, window.innerHeight);
+    const c = p.canvasEl;
 
-  // Apply CSS class instead of inline styles
-  c.addClass("sketch2-canvas");
+    c.addClass("sketch2-canvas");
 
-  p.pixelDensity(1);
-  p.noiseDetail(3, 0.5);
+    p.pixelDensity(IS_MOBILE ? 0.75 : 1); // reduce load for mobile
+    p.noiseDetail(3, 0.5);
 
-  initializeStars();
-  setupScrollFade();
-
+    initializeStars();
+    setupScrollFade();
   };
 
   // ------------------------------
@@ -52,7 +56,6 @@ let sketch2 = (p) => {
   p.startNebula = () => {
     p.__started = true;
     resetAnimation();
-
     starFadeStart = p.millis();
     starFade = 0;
   };
@@ -62,16 +65,22 @@ let sketch2 = (p) => {
   });
 
   // ------------------------------
-  // SCROLL FADE (NEBULA ONLY)
+  // Scroll fade (nebula only)
+//  Mobile scroll needs throttled fade updates
   // ------------------------------
   function setupScrollFade() {
     window.addEventListener("scroll", () => {
       let scrollY = window.scrollY;
 
-      const fadeInStart = 50;
-      const fadeInEnd = 300;
-      const fadeOutStart = 800;
-      const fadeOutEnd = 1400;
+      // Prevent sudden jumps on mobile
+      if (IS_MOBILE && Math.abs(scrollY - lastScrollY) > 150) return;
+      lastScrollY = scrollY;
+
+      const fadeInStart = 30;
+      const fadeInEnd = IS_MOBILE ? 200 : 300;
+
+      const fadeOutStart = IS_MOBILE ? 500 : 800;
+      const fadeOutEnd = IS_MOBILE ? 900 : 1400;
 
       if (scrollY < fadeInStart) {
         nebulaAlpha = 0;
@@ -90,7 +99,7 @@ let sketch2 = (p) => {
   // STAR INITIALIZATION
   // ------------------------------
   function initializeStars() {
-    stars.length = 0; // reuse array for GC safety
+    stars.length = 0;
 
     const addStars = (count, minS, maxS, colorFn, type) => {
       for (let i = 0; i < count; i++) {
@@ -105,17 +114,26 @@ let sketch2 = (p) => {
       }
     };
 
-    addStars(numNormalStars, 1, 2.5,
+    addStars(
+      numNormalStars,
+      1,
+      IS_MOBILE ? 2 : 2.5,
       () => p.color(200 + p.random(55), 200 + p.random(55), 255, p.random(150, 220)),
       "normal"
     );
 
-    addStars(numBrightStars, 2.5, 6,
+    addStars(
+      numBrightStars,
+      IS_MOBILE ? 2 : 2.5,
+      IS_MOBILE ? 5 : 6,
       () => p.color(255, 200 + p.random(55), 100 + p.random(100), p.random(180, 255)),
       "bright"
     );
 
-    addStars(numRedStars, 2, 4,
+    addStars(
+      numRedStars,
+      IS_MOBILE ? 1.7 : 2,
+      IS_MOBILE ? 3.5 : 4,
       () => p.color(255, p.random(50, 100), p.random(50, 100), p.random(180, 255)),
       "red"
     );
@@ -129,10 +147,9 @@ let sketch2 = (p) => {
 
     noiseOffset1_X = p.random(1000);
     noiseOffset1_Y = p.random(1000);
+
     noiseOffset2_X = p.random(1000);
     noiseOffset2_Y = p.random(1000);
-
-    for (let s of stars) s.twinkleOffset = p.random(1000);
   }
 
   // ------------------------------
@@ -155,24 +172,26 @@ let sketch2 = (p) => {
 
     const z = t * noiseSpeed;
 
-    // ======================================================
-    // NEBULA — optimized loops but identical visuals
-    // ======================================================
+    // ------------------------------
+    // NEBULA (mobile-enhanced)
+    // ------------------------------
     p.blendMode(p.SCREEN);
 
-    const grid1 = 40;
-    const grid2 = 60;
+    const grid1 = IS_MOBILE ? 55 : 40;
+    const grid2 = IS_MOBILE ? 80 : 60;
 
-    let n, r, g, b, a;
+    let n, a;
 
     for (let y = 0; y < p.height; y += grid1) {
       for (let x = 0; x < p.width; x += grid1) {
 
         n = p.noise(x * noiseScale + noiseOffset1_X,
-                    y * noiseScale + noiseOffset1_Y, z);
+                    y * noiseScale + noiseOffset1_Y,
+                    z);
 
-        a = p.lerp(0, 60, n) * nebulaAlpha;
-        if (a < 1) continue; // skip invisible pixels (optimization)
+        a = p.lerp(0, IS_MOBILE ? 50 : 60, n) * nebulaAlpha;
+
+        if (a < 1) continue;
 
         p.fill(
           p.lerp(80, 180, n),
@@ -189,9 +208,11 @@ let sketch2 = (p) => {
       for (let x = 0; x < p.width; x += grid2) {
 
         n = p.noise(x * noiseScale * 0.8 + noiseOffset2_X,
-                    y * noiseScale * 0.8 + noiseOffset2_Y, z * 1.5);
+                    y * noiseScale * 0.8 + noiseOffset2_Y,
+                    z * 1.5);
 
-        a = p.lerp(0, 70, n) * nebulaAlpha;
+        a = p.lerp(0, IS_MOBILE ? 55 : 70, n) * nebulaAlpha;
+
         if (a < 1) continue;
 
         p.fill(
@@ -205,16 +226,16 @@ let sketch2 = (p) => {
       }
     }
 
-    // ======================================================
+    // ------------------------------
     // STARS — smooth fade-in
-    // ======================================================
+    // ------------------------------
     p.blendMode(p.BLEND);
+
     const tSec = t / 1000;
 
     for (let s of stars) {
       const tw = p.sin(s.twinkleOffset + tSec * 2) * 0.2 + 1;
       const size = s.size * tw;
-
       const baseA = p.alpha(s.color) * tw * starFade;
 
       const r = p.red(s.color);
@@ -233,8 +254,15 @@ let sketch2 = (p) => {
     }
   };
 
+  // ------------------------------
+  // Resize for mobile (VERY IMPORTANT)
+  // ------------------------------
   p.windowResized = () => {
-    p.resizeCanvas(p.windowWidth, p.windowHeight);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    p.resizeCanvas(w, h);
+
     initializeStars();
     resetAnimation();
   };
